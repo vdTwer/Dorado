@@ -1,0 +1,17 @@
+# Secrets: never commit credentials.
+.env
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Pipeline data and Airflow runtime files
+data/
+logs/
+spark-warehouse/
+metastore_db/
+derby.log
