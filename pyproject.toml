@@ -1,0 +1,13 @@
+[project]
+name = "dorado"
+version = "0.1.0"
+description = "Batch pipeline that computes DORA metrics from GitHub Archive data."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pyspark>=4.2.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14"]
+build-backend = "uv_build"
