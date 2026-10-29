@@ -1,0 +1,82 @@
+# Local Airflow with the LocalExecutor. Tasks run as subprocesses of the
+# scheduler, and Spark runs in local mode inside those tasks. This replaces the
+# Celery workers and Redis of the official compose file, which only pay off
+# with several machines.
+x-airflow-common: &airflow-common
+  build: .
+  image: dorado-airflow
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?set AIRFLOW_FERNET_KEY in .env}
+    # Every component must sign and verify task tokens with the same secret.
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?set AIRFLOW_JWT_SECRET in .env}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    # Local development only: skip the login screen.
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/secrets/gcp-service-account.json
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./data:/opt/airflow/data
+    - ./logs:/opt/airflow/logs
+    - ./secrets:/opt/airflow/secrets:ro
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on: &airflow-depends-on
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    command: db migrate
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      retries: 5
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-db:
