@@ -39,3 +39,6 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D100", "D104"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
