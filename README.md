@@ -87,3 +87,11 @@ The Airflow UI runs at <http://localhost:8080>. Local login is disabled, so ever
 
 Place a service-account key at `secrets/gcp-service-account.json`. Compose mounts the `secrets/` folder read-only, and Git ignores it. The key needs only the BigQuery Data Editor and BigQuery Job User roles on the target dataset.
 
+## Metric definitions
+
+<!-- Written in phase 2, once the actual event payloads have been inspected. -->
+
+## Dashboard
+
+<!-- Screenshot placeholder: add docs/dashboard.png once the views are in place. -->
+
