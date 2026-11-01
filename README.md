@@ -87,6 +87,21 @@ The Airflow UI runs at <http://localhost:8080>. Local login is disabled, so ever
 
 Place a service-account key at `secrets/gcp-service-account.json`. Compose mounts the `secrets/` folder read-only, and Git ignores it. The key needs only the BigQuery Data Editor and BigQuery Job User roles on the target dataset.
 
+## Data window
+
+Dorado computes metrics for June 2025, one day per Airflow run. The window is fixed on purpose.
+
+In the fall of 2025, GitHub removed most fields from the public pull-request events. Creation time, merge time, and title are gone. The archive also shrank from about 250,000 events per hour to a few thousand. Data after the change cannot support lead time or change failure rate. The evidence is in [docs/event-schemas.md](docs/event-schemas.md).
+
+```mermaid
+timeline
+    title GH Archive pull-request events
+    2024 to Aug. 2025 : Full payloads : 12,000 to 18,000 per hour
+    June 2025 : Dorado's window
+    Oct. 2025 : Payloads trimmed : no created_at, merged_at, or title
+    Oct. 2026 : 1,000 to 2,000 per hour : no push events in some hours
+```
+
 ## Metric definitions
 
 Every metric comes from one event type. No metric needs to join two events, which keeps the Spark job simple and robust against gaps in the archive.
