@@ -89,7 +89,49 @@ Place a service-account key at `secrets/gcp-service-account.json`. Compose mount
 
 ## Metric definitions
 
-<!-- Written in phase 2, once the actual event payloads have been inspected. -->
+Every metric comes from one event type. No metric needs to join two events, which keeps the Spark job simple and robust against gaps in the archive.
+
+```mermaid
+flowchart LR
+    rel["ReleaseEvent<br/>published"] --> df["Deployment frequency"]
+    pr["PullRequestEvent<br/>closed and merged"] --> lt["Lead time for changes"]
+    pr --> cfr["Change failure rate"]
+    iss["IssuesEvent<br/>closed with a bug label"] --> ttr["Time to restore"]
+```
+
+Each metric is computed per repository and UTC day. A day is the date of the event in the archive.
+
+### Deployment frequency
+
+The number of releases published that day. Drafts and pre-releases do not count.
+
+- Source: `ReleaseEvent` with `release.draft = false` and `release.prerelease = false`.
+- Limitation: a GitHub release is not a deployment. Projects that ship from tags or package registries alone are undercounted.
+
+### Lead time for changes
+
+The median time from opening a pull request to merging it, over all pull requests merged that day.
+
+- Source: `PullRequestEvent` with action `closed` and `pull_request.merged = true`. Lead time is `merged_at - created_at`.
+- Limitation: DORA measures from commit to production. Dorado measures from proposal to merge, so it leaves out the time between merge and release. It also counts time spent in draft.
+
+### Change failure rate
+
+The share of merged pull requests that undo or patch an earlier change.
+
+- Source: the same merged pull requests. A change counts as a failure fix when its title starts with `Revert`, its branch starts with `revert-`, or its title or branch contains `hotfix`. GitHub's revert button produces the first two patterns.
+- Limitation: DORA divides failed deployments by all deployments. Dorado divides corrective changes by all changes. It misses fixes that do not say what they fix.
+
+### Time to restore
+
+The median time from opening a bug report to closing it as completed, over all such issues closed that day.
+
+- Source: `IssuesEvent` with action `closed`, `issue.state_reason = "completed"`, and at least one label whose name contains `bug`, ignoring case. Time to restore is `closed_at - created_at`.
+- Limitation: DORA measures recovery from a production incident. A bug report is a weaker signal. Old backlog bugs closed in a cleanup inflate the value, which is why Dorado reports the median rather than the mean.
+
+### Coverage
+
+GH Archive records the public GitHub event stream, which has always missed some events. All counts are therefore lower bounds. The medians hold up better. As long as events go missing at random, a gap removes samples without shifting the middle.
 
 ## Dashboard
 
