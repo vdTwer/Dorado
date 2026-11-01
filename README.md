@@ -172,5 +172,8 @@ GH Archive records the public GitHub event stream, which has always missed some 
 - Spark in local mode. One day of GH Archive is a few gigabytes. A single machine handles it, so a Spark cluster would add network setup and version matching for no gain. The same code would run on a cluster by changing the master URL.
 - LocalExecutor instead of Celery. Celery workers and Redis pay off across several machines. Here the scheduler runs tasks as local subprocesses.
 - Aggregate locally, load results. Uploading a few hundred rows instead of raw events keeps the BigQuery footprint, and the bill, near zero.
+- A fixed historical window. GitHub trimmed the event payloads in the fall of 2025. Rather than build fragile workarounds on thin data, Dorado backfills June 2025, when every needed field still existed. Airflow treats this as an ordinary backfill with a start and an end date.
+- One event per metric. Each metric reads a single event type, so no metric joins an opening event to a closing one. A join would fail whenever the archive missed one side.
+- Medians, not means. Lead time and time to restore have long tails. One bug fixed after three years would dominate a mean.
 - Idempotent partition loads. Each run overwrites one date partition. Backfills and retries are therefore safe to repeat.
 - Airflow constraints in the image. Airflow pins its whole dependency tree in a constraints file. Installing the package against it keeps Dorado from upgrading a library that Airflow relies on. The uv lock file governs local development and CI.
