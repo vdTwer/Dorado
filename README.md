@@ -102,6 +102,21 @@ timeline
     Oct. 2026 : 1,000 to 2,000 per hour : no push events in some hours
 ```
 
+## Repositories
+
+| Repository | Bug label |
+| --- | --- |
+| `kubernetes/kubernetes` | `kind/bug` |
+| `grafana/grafana` | `type/bug` |
+| `elastic/elasticsearch` | `>bug` |
+| `microsoft/vscode` | `bug` |
+| `apache/airflow` | `kind:bug` |
+| `dotnet/runtime` | `bug` |
+| `astral-sh/uv` | `bug` |
+| `astral-sh/ruff` | `bug` |
+
+Each one merges pull requests on GitHub and labels its bugs. Projects that merge elsewhere, such as `golang/go` through Gerrit, would show no lead time at all.
+
 ## Metric definitions
 
 Every metric comes from one event type. No metric needs to join two events, which keeps the Spark job simple and robust against gaps in the archive.
