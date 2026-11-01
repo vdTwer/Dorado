@@ -51,3 +51,39 @@ flowchart LR
 
 A failed check stops the run before anything reaches BigQuery. Each load replaces exactly one date partition, so rerunning or backfilling a day never duplicates data.
 
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `src/dorado/` | The Python package: Spark session, transformations, checks, and loader |
+| `tests/` | pytest suite with small JSON fixtures |
+| `dags/` | Airflow DAG definitions |
+| `Dockerfile` | Airflow image with Java 17 and PySpark |
+| `compose.yaml` | Local Airflow stack |
+
+## Setup
+
+You need Docker with Compose and [uv](https://docs.astral.sh/uv/).
+
+### Run the tests
+
+```bash
+uv sync
+uv run pytest
+```
+
+PySpark needs Java 17 or newer on your `PATH`.
+
+### Start Airflow
+
+```bash
+cp .env.example .env   # then fill in the two secrets
+docker compose up --build
+```
+
+The Airflow UI runs at <http://localhost:8080>. Local login is disabled, so every visitor is an admin. Do not expose this port.
+
+### Google Cloud credentials
+
+Place a service-account key at `secrets/gcp-service-account.json`. Compose mounts the `secrets/` folder read-only, and Git ignores it. The key needs only the BigQuery Data Editor and BigQuery Job User roles on the target dataset.
+
