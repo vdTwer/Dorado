@@ -95,3 +95,10 @@ Place a service-account key at `secrets/gcp-service-account.json`. Compose mount
 
 <!-- Screenshot placeholder: add docs/dashboard.png once the views are in place. -->
 
+## Design decisions
+
+- Spark in local mode. One day of GH Archive is a few gigabytes. A single machine handles it, so a Spark cluster would add network setup and version matching for no gain. The same code would run on a cluster by changing the master URL.
+- LocalExecutor instead of Celery. Celery workers and Redis pay off across several machines. Here the scheduler runs tasks as local subprocesses.
+- Aggregate locally, load results. Uploading a few hundred rows instead of raw events keeps the BigQuery footprint, and the bill, near zero.
+- Idempotent partition loads. Each run overwrites one date partition. Backfills and retries are therefore safe to repeat.
+- Airflow constraints in the image. Airflow pins its whole dependency tree in a constraints file. Installing the package against it keeps Dorado from upgrading a library that Airflow relies on. The uv lock file governs local development and CI.
