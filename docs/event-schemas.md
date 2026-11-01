@@ -51,6 +51,26 @@ On October 30, 2026, the whole day held 98,707 events. `kubernetes/kubernetes` a
 - No trailing newline. Some hourly files end without one, so concatenating them with `zcat` glues two records together. Spark reads each file separately and is not affected.
 - Drafts and pre-releases. About 16 percent of published releases are pre-releases, and a few are drafts.
 
+## Finding 4: repositories differ in how they work
+
+A full day before the change, June 18, 2025, shows which candidates fit the metrics. Counts are events in the archive, not the true totals.
+
+| Repository | Merged PRs | Closed issues | Bug label seen | Fit |
+| --- | ---: | ---: | --- | --- |
+| `grafana/grafana` | 43 | 8 | `type/bug` | yes |
+| `elastic/elasticsearch` | 28 | 9 | `>bug` | yes |
+| `microsoft/vscode` | 12 | 26 | `bug` | yes |
+| `apache/airflow` | 10 | 3 | `kind:bug` | yes |
+| `astral-sh/uv` | 5 | 7 | `bug` | yes |
+| `kubernetes/kubernetes` | 4 | 4 | `kind/bug` | yes |
+| `dotnet/runtime` | 8 | 12 | `bug` | yes |
+| `astral-sh/ruff` | 3 | 2 | `bug` | yes |
+| `golang/go` | 0 | 9 | `BugReport` | no: changes merge through Gerrit |
+| `pytorch/pytorch` | 0 | 18 | none | no: a bot closes PRs without a GitHub merge |
+| `home-assistant/core` | 11 | 27 | none | no: no bug label at close |
+
+Bug labels follow no standard. A case-insensitive match on `bug` covers every convention above.
+
 ## Conclusion
 
 Data from October 2025 onward cannot support lead time or change failure rate for specific repositories. The fields are gone, and the sample is too thin to pair events. Dorado therefore runs on a fixed window before the change. See the README for the window and the definitions.
