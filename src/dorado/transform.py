@@ -149,3 +149,35 @@ def change_failures(events: DataFrame) -> DataFrame:
         .groupBy(F.col("repo.name").alias("repo"))
         .agg(F.count("*").alias("merged_changes"), F.count_if(is_fix).alias("failed_changes"))
     )
+
+
+def restores(events: DataFrame) -> DataFrame:
+    """Compute the median time from opening a bug report to resolving it.
+
+    A bug report is an issue with at least one label whose name contains
+    ``bug``, ignoring case. Only issues closed as completed count.
+
+    Args:
+        events: Selected events as returned by `select_events`.
+
+    Returns:
+        Columns ``repo``, ``restored_bugs``, and ``time_to_restore_hours``.
+        Repositories without a resolved bug are absent.
+    """
+    issue = F.col("payload.issue")
+    is_bug = F.exists(issue["labels"], lambda label: F.lower(label["name"]).contains("bug"))
+    return (
+        events.where(
+            (F.col("type") == "IssuesEvent")
+            & (F.col("payload.action") == "closed")
+            & (issue["state_reason"] == "completed")
+            & is_bug
+        )
+        .groupBy(F.col("repo.name").alias("repo"))
+        .agg(
+            F.count("*").alias("restored_bugs"),
+            F.median(_hours_between(issue["created_at"], issue["closed_at"])).alias(
+                "time_to_restore_hours"
+            ),
+        )
+    )

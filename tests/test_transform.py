@@ -10,6 +10,7 @@ from dorado.transform import (
     deployments,
     lead_times,
     read_events,
+    restores,
     select_events,
 )
 
@@ -66,3 +67,17 @@ def test_change_failures_count_reverts_and_hotfixes(spark: SparkSession) -> None
 
     assert row is not None
     assert (row["repo"], row["merged_changes"], row["failed_changes"]) == ("grafana/grafana", 3, 2)
+
+
+def test_restores_take_the_median_over_completed_bug_reports(spark: SparkSession) -> None:
+    """Two bug reports were completed after 48 and 10 hours."""
+    events = read_events(spark, str(FIXTURES / "issues.json"))
+
+    row = restores(events).first()
+
+    assert row is not None
+    assert (row["repo"], row["restored_bugs"], row["time_to_restore_hours"]) == (
+        "grafana/grafana",
+        2,
+        29.0,
+    )
