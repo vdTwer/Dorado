@@ -12,8 +12,10 @@ from dorado.transform import (
     lead_times,
     read_events,
     restores,
+    run,
     select_events,
 )
+from dorado.config import REPOSITORIES
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DAY = dt.date(2025, 6, 18)
@@ -110,3 +112,13 @@ def test_daily_metrics_give_every_repository_one_row(spark: SparkSession) -> Non
         "restored_bugs": 0,
         "time_to_restore_hours": None,
     }
+
+
+def test_run_writes_one_row_per_tracked_repository(spark: SparkSession, tmp_path: Path) -> None:
+    """A rerun replaces the output instead of adding to it."""
+    output = str(tmp_path / "metrics")
+
+    run(str(FIXTURES), output, DAY)
+    run(str(FIXTURES), output, DAY)
+
+    assert spark.read.parquet(output).count() == len(REPOSITORIES)

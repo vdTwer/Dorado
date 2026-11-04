@@ -6,6 +6,9 @@ from collections.abc import Sequence
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
 
+from dorado.config import REPOSITORIES
+from dorado.spark import create_spark_session
+
 # Only the fields the metrics need. An explicit schema spares Spark a full pass
 # over the input to infer one, and it keeps the columns stable when GitHub adds
 # or removes fields. A field missing from an event reads as null.
@@ -222,3 +225,20 @@ def daily_metrics(events: DataFrame, repositories: Sequence[str], day: dt.date) 
         "restored_bugs",
         "time_to_restore_hours",
     )
+
+
+def run(input_path: str, output_path: str, day: dt.date) -> None:
+    """Compute one day of metrics from raw files and write them as Parquet.
+
+    The output directory is replaced, so rerunning a day is safe.
+
+    Args:
+        input_path: The day's GH Archive files, as a directory or glob.
+        output_path: Directory for the Parquet output.
+        day: The UTC date to compute.
+    """
+    spark = create_spark_session()
+    metrics = daily_metrics(read_events(spark, input_path), REPOSITORIES, day)
+    # One small file is easier to check and load than Spark's default of one
+    # file per partition.
+    metrics.coalesce(1).write.mode("overwrite").parquet(output_path)
