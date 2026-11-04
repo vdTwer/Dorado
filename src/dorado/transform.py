@@ -1,6 +1,10 @@
 """Spark transformations from raw GH Archive events to daily DORA metrics."""
 
+import datetime as dt
+from collections.abc import Sequence
+
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
 
 # Only the fields the metrics need. An explicit schema spares Spark a full pass
 # over the input to infer one, and it keeps the columns stable when GitHub adds
@@ -42,3 +46,20 @@ def read_events(spark: SparkSession, path: str) -> DataFrame:
         One row per event. Malformed lines become rows of nulls.
     """
     return spark.read.schema(EVENT_SCHEMA).json(path)
+
+
+def select_events(events: DataFrame, repositories: Sequence[str], day: dt.date) -> DataFrame:
+    """Keep one day of events for the tracked repositories, each event once.
+
+    Args:
+        events: Raw events as returned by `read_events`.
+        repositories: Full names such as ``"grafana/grafana"``.
+        day: The UTC date to keep.
+
+    Returns:
+        The matching events. The archive repeats some events, so rows are
+        deduplicated on the event id.
+    """
+    return events.where(
+        F.col("repo.name").isin(list(repositories)) & (F.to_date("created_at") == F.lit(day))
+    ).dropDuplicates(["id"])
