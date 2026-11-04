@@ -181,3 +181,44 @@ def restores(events: DataFrame) -> DataFrame:
             ),
         )
     )
+
+
+def daily_metrics(events: DataFrame, repositories: Sequence[str], day: dt.date) -> DataFrame:
+    """Combine the four metrics into one row per tracked repository.
+
+    Every repository gets a row, even on a quiet day. Counts default to zero,
+    and medians stay null when there was nothing to measure.
+
+    Args:
+        events: Raw events as returned by `read_events`.
+        repositories: Full names of the tracked repositories.
+        day: The UTC date to compute.
+
+    Returns:
+        Columns ``day``, ``repo``, ``releases``, ``merged_changes``,
+        ``failed_changes``, ``lead_time_hours``, ``restored_bugs``, and
+        ``time_to_restore_hours``.
+    """
+    # Four aggregations read the selection. Caching it keeps Spark from
+    # scanning the raw files four times, because data frames are lazy plans.
+    selected = select_events(events, repositories, day).cache()
+    metrics = events.sparkSession.createDataFrame([(repo,) for repo in repositories], "repo STRING")
+    for part in (
+        deployments(selected),
+        lead_times(selected),
+        change_failures(selected),
+        restores(selected),
+    ):
+        metrics = metrics.join(part, "repo", "left")
+    return metrics.fillna(
+        0, subset=["releases", "merged_changes", "failed_changes", "restored_bugs"]
+    ).select(
+        F.lit(day).alias("day"),
+        "repo",
+        "releases",
+        "merged_changes",
+        "failed_changes",
+        "lead_time_hours",
+        "restored_bugs",
+        "time_to_restore_hours",
+    )

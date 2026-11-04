@@ -7,6 +7,7 @@ from pyspark.sql import SparkSession
 
 from dorado.transform import (
     change_failures,
+    daily_metrics,
     deployments,
     lead_times,
     read_events,
@@ -81,3 +82,31 @@ def test_restores_take_the_median_over_completed_bug_reports(spark: SparkSession
         2,
         29.0,
     )
+
+
+def test_daily_metrics_give_every_repository_one_row(spark: SparkSession) -> None:
+    """A quiet repository gets zero counts and null medians."""
+    events = read_events(spark, str(FIXTURES))
+
+    rows = {row["repo"]: row.asDict() for row in daily_metrics(events, REPOS, DAY).collect()}
+
+    assert rows["grafana/grafana"] == {
+        "day": DAY,
+        "repo": "grafana/grafana",
+        "releases": 2,
+        "merged_changes": 3,
+        "failed_changes": 2,
+        "lead_time_hours": 4.0,
+        "restored_bugs": 2,
+        "time_to_restore_hours": 29.0,
+    }
+    assert rows["astral-sh/uv"] == {
+        "day": DAY,
+        "repo": "astral-sh/uv",
+        "releases": 1,
+        "merged_changes": 0,
+        "failed_changes": 0,
+        "lead_time_hours": None,
+        "restored_bugs": 0,
+        "time_to_restore_hours": None,
+    }
