@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 
-from dorado.transform import read_events, select_events
+from dorado.transform import deployments, read_events, select_events
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DAY = dt.date(2025, 6, 18)
@@ -32,3 +32,12 @@ def test_select_events_keeps_one_clean_copy_per_event(spark: SparkSession) -> No
     ids = [row["id"] for row in select_events(events, REPOS, DAY).collect()]
 
     assert ids == ["n1"]
+
+
+def test_deployments_count_only_stable_releases(spark: SparkSession) -> None:
+    """Drafts and pre-releases are not deployments."""
+    events = read_events(spark, str(FIXTURES / "releases.json"))
+
+    counts = {row["repo"]: row["releases"] for row in deployments(events).collect()}
+
+    assert counts == {"grafana/grafana": 1, "astral-sh/uv": 1}

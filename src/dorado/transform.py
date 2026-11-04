@@ -63,3 +63,25 @@ def select_events(events: DataFrame, repositories: Sequence[str], day: dt.date) 
     return events.where(
         F.col("repo.name").isin(list(repositories)) & (F.to_date("created_at") == F.lit(day))
     ).dropDuplicates(["id"])
+
+
+def deployments(events: DataFrame) -> DataFrame:
+    """Count stable releases per repository.
+
+    Args:
+        events: Selected events as returned by `select_events`.
+
+    Returns:
+        Columns ``repo`` and ``releases``. Repositories without a release are absent.
+    """
+    release = F.col("payload.release")
+    return (
+        events.where(
+            (F.col("type") == "ReleaseEvent")
+            & (F.col("payload.action") == "published")
+            & ~release["draft"]
+            & ~release["prerelease"]
+        )
+        .groupBy(F.col("repo.name").alias("repo"))
+        .agg(F.count("*").alias("releases"))
+    )
