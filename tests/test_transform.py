@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 
-from dorado.transform import deployments, read_events, select_events
+from dorado.transform import deployments, lead_times, read_events, select_events
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DAY = dt.date(2025, 6, 18)
@@ -41,3 +41,12 @@ def test_deployments_count_only_stable_releases(spark: SparkSession) -> None:
     counts = {row["repo"]: row["releases"] for row in deployments(events).collect()}
 
     assert counts == {"grafana/grafana": 1, "astral-sh/uv": 1}
+
+
+def test_lead_times_take_the_median_over_merged_pull_requests(spark: SparkSession) -> None:
+    """Merged pull requests took 24, 2, and 4 hours. Unmerged ones do not count."""
+    events = read_events(spark, str(FIXTURES / "pull_requests.json"))
+
+    rows = lead_times(events).collect()
+
+    assert [(row["repo"], row["lead_time_hours"]) for row in rows] == [("grafana/grafana", 4.0)]

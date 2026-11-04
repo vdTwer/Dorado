@@ -3,7 +3,7 @@
 import datetime as dt
 from collections.abc import Sequence
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 # Only the fields the metrics need. An explicit schema spares Spark a full pass
@@ -84,4 +84,40 @@ def deployments(events: DataFrame) -> DataFrame:
         )
         .groupBy(F.col("repo.name").alias("repo"))
         .agg(F.count("*").alias("releases"))
+    )
+
+
+def _hours_between(start: Column, end: Column) -> Column:
+    """Return the time from start to end in hours."""
+    return (end.cast("long") - start.cast("long")) / 3600
+
+
+def _merged_pull_requests(events: DataFrame) -> DataFrame:
+    """Keep the closing events of merged pull requests."""
+    return events.where(
+        (F.col("type") == "PullRequestEvent")
+        & (F.col("payload.action") == "closed")
+        & F.col("payload.pull_request.merged")
+    )
+
+
+def lead_times(events: DataFrame) -> DataFrame:
+    """Compute the median time from opening to merging a pull request.
+
+    Args:
+        events: Selected events as returned by `select_events`.
+
+    Returns:
+        Columns ``repo`` and ``lead_time_hours``. Repositories without a merge
+        are absent.
+    """
+    pull_request = F.col("payload.pull_request")
+    return (
+        _merged_pull_requests(events)
+        .groupBy(F.col("repo.name").alias("repo"))
+        .agg(
+            F.median(_hours_between(pull_request["created_at"], pull_request["merged_at"])).alias(
+                "lead_time_hours"
+            )
+        )
     )
