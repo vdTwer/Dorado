@@ -39,7 +39,7 @@ flowchart LR
     metrics --> checks --> load --> table --> views
 ```
 
-All heavy lifting happens locally. Spark reads a full day of raw events, keeps only the configured repositories, and writes a few hundred rows of daily aggregates. Only those aggregates travel to BigQuery. The pipeline never queries the public `githubarchive` dataset in BigQuery, so it stays within the free sandbox.
+All heavy lifting happens locally. Spark reads a full day of raw events, keeps only the tracked repositories, and writes one row of metrics per repository. Only those aggregates travel to BigQuery. The pipeline never queries the public `githubarchive` dataset in BigQuery, so it stays within the free sandbox.
 
 Each daily run is one Airflow task chain:
 
@@ -163,6 +163,38 @@ The median time from opening a bug report to closing it as completed, over all s
 
 GH Archive records the public GitHub event stream, which has always missed some events. All counts are therefore lower bounds. The medians hold up better. As long as events go missing at random, a gap removes samples without shifting the middle.
 
+## Spark job
+
+The job lives in `src/dorado/transform.py`. Each step is a small function from one data frame to another, so every step has its own test.
+
+```mermaid
+flowchart LR
+    raw[("24 hourly files")] --> read["read_events<br/>explicit schema"]
+    read --> select["select_events<br/>tracked repos, one day,<br/>deduplicated, cached"]
+    select --> dep[deployments]
+    select --> lt[lead_times]
+    select --> cf[change_failures]
+    select --> rs[restores]
+    repos[("Repository list")] --> join["daily_metrics<br/>left join per repo"]
+    dep & lt & cf & rs --> join
+    join --> out[("Parquet<br/>one row per repo")]
+```
+
+The output has one row per tracked repository and day:
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `day` | date | UTC date of the events |
+| `repo` | string | Repository, such as `grafana/grafana` |
+| `releases` | integer | Stable releases published |
+| `merged_changes` | integer | Pull requests merged |
+| `failed_changes` | integer | Merged pull requests that revert or hotfix |
+| `lead_time_hours` | double | Median hours from opening to merge, null without merges |
+| `restored_bugs` | integer | Bug reports closed as completed |
+| `time_to_restore_hours` | double | Median hours a resolved bug stayed open, null without bugs |
+
+The job stores counts, not rates. The change failure rate over a week is the sum of `failed_changes` divided by the sum of `merged_changes`. Averaging seven daily rates would give a quiet day as much weight as a busy one.
+
 ## Dashboard
 
 <!-- Screenshot placeholder: add docs/dashboard.png once the views are in place. -->
@@ -171,9 +203,11 @@ GH Archive records the public GitHub event stream, which has always missed some 
 
 - Spark in local mode. One day of GH Archive is a few gigabytes. A single machine handles it, so a Spark cluster would add network setup and version matching for no gain. The same code would run on a cluster by changing the master URL.
 - LocalExecutor instead of Celery. Celery workers and Redis pay off across several machines. Here the scheduler runs tasks as local subprocesses.
-- Aggregate locally, load results. Uploading a few hundred rows instead of raw events keeps the BigQuery footprint, and the bill, near zero.
+- Aggregate locally, load results. Uploading eight rows a day instead of raw events keeps the BigQuery footprint, and the bill, near zero.
 - A fixed historical window. GitHub trimmed the event payloads in the fall of 2025. Rather than build fragile workarounds on thin data, Dorado backfills June 2025, when every needed field still existed. Airflow treats this as an ordinary backfill with a start and an end date.
 - One event per metric. Each metric reads a single event type, so no metric joins an opening event to a closing one. A join would fail whenever the archive missed one side.
+- An explicit read schema. Spark can infer a schema from JSON, but only by reading the whole input first. Declaring the dozen fields Dorado needs skips that pass. It also keeps the columns stable: a field GitHub drops reads as null instead of vanishing.
+- Cache once, aggregate four times. A Spark data frame is a lazy plan, not a table in memory. Without `cache()`, each of the four metrics would rescan the raw files.
 - Medians, not means. Lead time and time to restore have long tails. One bug fixed after three years would dominate a mean.
 - Idempotent partition loads. Each run overwrites one date partition. Backfills and retries are therefore safe to repeat.
 - Airflow constraints in the image. Airflow pins its whole dependency tree in a constraints file. Installing the package against it keeps Dorado from upgrading a library that Airflow relies on. The uv lock file governs local development and CI.

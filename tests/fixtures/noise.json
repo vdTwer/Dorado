@@ -1,0 +1,6 @@
+{"id": "n1", "type": "ReleaseEvent", "created_at": "2025-06-18T09:00:00Z", "repo": {"name": "grafana/grafana"}, "payload": {"action": "published", "release": {"draft": false, "prerelease": false}}}
+{"id": "n1", "type": "ReleaseEvent", "created_at": "2025-06-18T09:00:00Z", "repo": {"name": "grafana/grafana"}, "payload": {"action": "published", "release": {"draft": false, "prerelease": false}}}
+{"id": "n2", "type": "ReleaseEvent", "created_at": "2025-06-18T09:00:00Z", "repo": {"name": "golang/go"}, "payload": {"action": "published", "release": {"draft": false, "prerelease": false}}}
+{"id": "n3", "type": "ReleaseEvent", "created_at": "2025-06-17T23:59:59Z", "repo": {"name": "grafana/grafana"}, "payload": {"action": "published", "release": {"draft": false, "prerelease": false}}}
+{"id": "n4", "type": "ForkEvent", "created_at": "2025-06-18T09:00:00Z", "repo": {}, "payload": {"action": "forked"}}
+{"id": "n5", "type": "ReleaseEvent", "created_at": "2025-06-18T09:00:00Z", "repo": {"name": "grafana/grafana"}, "payload": {"action": "published"
