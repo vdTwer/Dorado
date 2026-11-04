@@ -5,7 +5,13 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 
-from dorado.transform import deployments, lead_times, read_events, select_events
+from dorado.transform import (
+    change_failures,
+    deployments,
+    lead_times,
+    read_events,
+    select_events,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DAY = dt.date(2025, 6, 18)
@@ -50,3 +56,13 @@ def test_lead_times_take_the_median_over_merged_pull_requests(spark: SparkSessio
     rows = lead_times(events).collect()
 
     assert [(row["repo"], row["lead_time_hours"]) for row in rows] == [("grafana/grafana", 4.0)]
+
+
+def test_change_failures_count_reverts_and_hotfixes(spark: SparkSession) -> None:
+    """Of three merged pull requests, one is a revert and one a hotfix branch."""
+    events = read_events(spark, str(FIXTURES / "pull_requests.json"))
+
+    row = change_failures(events).first()
+
+    assert row is not None
+    assert (row["repo"], row["merged_changes"], row["failed_changes"]) == ("grafana/grafana", 3, 2)

@@ -121,3 +121,31 @@ def lead_times(events: DataFrame) -> DataFrame:
             )
         )
     )
+
+
+def change_failures(events: DataFrame) -> DataFrame:
+    """Count merged pull requests and those that revert or hotfix a change.
+
+    A change counts as a failure fix when its title starts with ``Revert``, its
+    branch starts with ``revert-``, or its title or branch contains ``hotfix``.
+    GitHub's revert button produces the first two patterns.
+
+    Args:
+        events: Selected events as returned by `select_events`.
+
+    Returns:
+        Columns ``repo``, ``merged_changes``, and ``failed_changes``.
+        Repositories without a merge are absent.
+    """
+    title = F.col("payload.pull_request.title")
+    branch = F.col("payload.pull_request.head.ref")
+    is_fix = (
+        title.startswith("Revert")
+        | branch.startswith("revert-")
+        | F.lower(F.concat_ws(" ", title, branch)).contains("hotfix")
+    )
+    return (
+        _merged_pull_requests(events)
+        .groupBy(F.col("repo.name").alias("repo"))
+        .agg(F.count("*").alias("merged_changes"), F.count_if(is_fix).alias("failed_changes"))
+    )
