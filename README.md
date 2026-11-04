@@ -39,7 +39,7 @@ flowchart LR
     metrics --> checks --> load --> table --> views
 ```
 
-All heavy lifting happens locally. Spark reads a full day of raw events, keeps only the configured repositories, and writes a few hundred rows of daily aggregates. Only those aggregates travel to BigQuery. The pipeline never queries the public `githubarchive` dataset in BigQuery, so it stays within the free sandbox.
+All heavy lifting happens locally. Spark reads a full day of raw events, keeps only the tracked repositories, and writes one row of metrics per repository. Only those aggregates travel to BigQuery. The pipeline never queries the public `githubarchive` dataset in BigQuery, so it stays within the free sandbox.
 
 Each daily run is one Airflow task chain:
 
@@ -203,7 +203,7 @@ The job stores counts, not rates. The change failure rate over a week is the sum
 
 - Spark in local mode. One day of GH Archive is a few gigabytes. A single machine handles it, so a Spark cluster would add network setup and version matching for no gain. The same code would run on a cluster by changing the master URL.
 - LocalExecutor instead of Celery. Celery workers and Redis pay off across several machines. Here the scheduler runs tasks as local subprocesses.
-- Aggregate locally, load results. Uploading a few hundred rows instead of raw events keeps the BigQuery footprint, and the bill, near zero.
+- Aggregate locally, load results. Uploading eight rows a day instead of raw events keeps the BigQuery footprint, and the bill, near zero.
 - A fixed historical window. GitHub trimmed the event payloads in the fall of 2025. Rather than build fragile workarounds on thin data, Dorado backfills June 2025, when every needed field still existed. Airflow treats this as an ordinary backfill with a start and an end date.
 - One event per metric. Each metric reads a single event type, so no metric joins an opening event to a closing one. A join would fail whenever the archive missed one side.
 - An explicit read schema. Spark can infer a schema from JSON, but only by reading the whole input first. Declaring the dozen fields Dorado needs skips that pass. It also keeps the columns stable: a field GitHub drops reads as null instead of vanishing.
