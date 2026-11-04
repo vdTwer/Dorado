@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 
+from dorado.config import REPOSITORIES
 from dorado.transform import (
     change_failures,
     daily_metrics,
@@ -15,7 +16,6 @@ from dorado.transform import (
     run,
     select_events,
 )
-from dorado.config import REPOSITORIES
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DAY = dt.date(2025, 6, 18)
